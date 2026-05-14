@@ -18,10 +18,19 @@ TRACKING_MODE = "face"
 SMOOTHING = 0.25
 DEAD_ZONE_X = 45
 DEAD_ZONE_Y = 35 
-MOUSE_SPEED = 0.08
+MOUSE_SPEED = 0.2
 FAILSAFE_MARGIN_PX = 12
 
 CLICK_COOLDOWN_SEC = 0.6
+
+# EMG serial settings.
+USE_EMG_SERIAL = True
+EMG_SERIAL_PORT = "COM11"
+EMG_BAUDRATE = 9600
+EMG_TIMEOUT_SEC = 1.0
+
+# EMG trigger threshold; raise/lower based on sensor baseline noise.
+EMG_THRESHOLD = 10
 
 LOG_PATH = "logs/session_log.csv"
 

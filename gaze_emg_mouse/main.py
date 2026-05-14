@@ -13,6 +13,7 @@ from emg_input_simulator import (
     RIGHT_CLICK,
     EMGInputSimulator,
 )
+from emg_serial import EMGSerialInput
 from face_tracker import FaceTracker
 from gaze_tracker import GazeTracker
 from logger import SessionLogger
@@ -29,6 +30,11 @@ def print_startup_settings():
     print(f"MOUSE_SPEED: {config.MOUSE_SPEED}")
     print(f"SMOOTHING: {config.SMOOTHING}")
     print(f"FAILSAFE_MARGIN_PX: {config.FAILSAFE_MARGIN_PX}")
+    print(f"USE_EMG_SERIAL: {config.USE_EMG_SERIAL}")
+    if config.USE_EMG_SERIAL:
+        print(f"EMG_SERIAL_PORT: {config.EMG_SERIAL_PORT}")
+        print(f"EMG_BAUDRATE: {config.EMG_BAUDRATE}")
+        print(f"EMG_THRESHOLD: {config.EMG_THRESHOLD}")
     print("Q or ESC exits safely.")
     print("===============================")
 
@@ -98,9 +104,23 @@ def main():
     gaze_tracker = GazeTracker()
     mouse_controller = MouseController()
     simulator = EMGInputSimulator()
+    emg_serial = None
     logger = SessionLogger(config.LOG_PATH)
 
-    simulator.start()
+    use_serial = False
+    if getattr(config, "USE_EMG_SERIAL", False):
+        emg_serial = EMGSerialInput(
+            port=config.EMG_SERIAL_PORT,
+            baudrate=config.EMG_BAUDRATE,
+            timeout=config.EMG_TIMEOUT_SEC,
+            threshold=config.EMG_THRESHOLD,
+        )
+        use_serial = emg_serial.connect()
+        if not use_serial:
+            print("Serial connection failed. Falling back to keyboard simulator.")
+
+    if not use_serial:
+        simulator.start()
     last_click_time = 0.0
     last_event = None
     running = True
@@ -143,7 +163,15 @@ def main():
                 dx = 0.0
                 dy = 0.0
 
-            event = simulator.get_event()
+            event = None
+            if use_serial and emg_serial is not None:
+                emg_value = emg_serial.read_triggered_value()
+                if emg_value is not None:
+                    event = LEFT_CLICK
+                    last_event = f"EMG:{emg_value}"
+            else:
+                event = simulator.get_event()
+
             if event is not None:
                 last_event = event
 
@@ -197,7 +225,10 @@ def main():
         print("Interrupted by user. Exiting safely.")
     finally:
         mouse_controller.stop_drag_if_needed()
-        simulator.stop()
+        if use_serial and emg_serial is not None:
+            emg_serial.close()
+        else:
+            simulator.stop()
         face_tracker.close()
         logger.close()
         cap.release()
